@@ -1,36 +1,115 @@
 import os
 import torch
 import utils
+import random
 import torchvision
 import numpy as np
+from scipy import ndimage
+import torchvision.transforms as T
 from engine import train_one_epoch
+from PIL import Image, ImageOps, ImageFilter
 from City_imageloader import CityscapeDataset
 
 from torch.utils.tensorboard import SummaryWriter
 
 def get_contrastive_model():
-    # load an instance segmentation model pre-trained pre-trained on COCO
     #model = torchvision.models.detection.maskrcnn_resnet50_fpn(pretrained=False)
     model = torchvision.models.resnet50(zero_init_residual=True)
-    return model
+    newmodel = torch.nn.Sequential(*(list(model.children())[:-1]))
 
-def augmentation():
+    return newmodel
+
+class GaussianBlur(object):
+    def __init__(self, p):
+        self.p = p
+        
+    def __call__(self, img):
+        if random.random() < self.p:
+            sigma = random.random() * 1.9 + 0.1
+            
+            return img.filter(ImageFilter.GaussianBlur(sigma))
+        else:
+            return img
+        
+class Sobel:
+    def __init__(self):
+        pass
+        
+    def __call__(self,img):
+        # Get x-gradient in "sx"
+        sx = ndimage.sobel(img,axis=0,mode='constant')
+        # Get y-gradient in "sy"
+        sy = ndimage.sobel(img,axis=1,mode='constant')
+        # Get square root of sum of squares
+        sobel=np.hypot(sx,sy)
+        return sobel
+
+class RandomErasing:
+    def __init__(self, p, area):
+        self.p = p
+        self.area = area
+
+    def __call__(self, img):
+        if np.random.random() < self.p:
+            return img
+
+        new_img = np.asarray(img)
+        S_e = (np.random.random() * self.area + 0.1) * new_img.shape[0] * new_img.shape[1] # random area
+        tot = 0
+
+        while tot < S_e:
+            y , x = np.random.randint(0, new_img.shape[0]-2) , np.random.randint(0, new_img.shape[1]-2)
+            wy, wx = np.random.randint(1, new_img.shape[0] - y) , np.random.randint(1, new_img.shape[1] - x)
+
+            if wy * wx > S_e*2:
+                continue
+
+            tot += wy * wx
+
+            random_patch = np.random.rand(wy,wx,3)*255
+            new_img[ y : y + wy , x : x + wx , : ] = random_patch
+        
+        return Image.fromarray(new_img)
     
-    pass
+class augmentation:
+    def __init__(self):
+    
+            # this should have a parameter in cfg passed to it
+            # with open("./../../data/backgrounds.yaml") as f:
+                # self.bg_files = yaml.safe_load(f)['files']
+    
+    
+            self.transform = T.Compose([
+          T.RandomApply(
+               [T.ColorJitter(brightness=0.4, contrast=0.4,
+                                       saturation=0.2, hue=[ 0 , 0.125])],
+               p=0.5,
+           ),
+           GaussianBlur(p=0.9),
+           RandomErasing(p=1.0, area = 0.35),    
+           #T.RandomApply([Sobel()],p=0.5),
+           T.ToTensor(),          
+          ])
+    
+    
+    def __call__(self, x):
+        y1 = self.transform(x)
+        y2 = self.transform(x)
+        return torch.cat((y1.unsqueeze(0), y2.unsqueeze(0)),0)
 
 
 
 def main():
-    base_lr = 0.000001
-    numEpochs = 1
+    base_lr = 0.0001
+    numEpochs = 5
     learningRate = base_lr
 
     # model name   
-    model_name = 'model_Cityscapes_contrastive_numEpochs' + str(numEpochs) 
+    model_name = 'model_Barlow_contrastive_numEpochs' + str(numEpochs) 
     print('model name: ', model_name)
     
     # see if path exist otherwise make new directory
-    out_dir = os.path.join('./results/Cityscapes/', model_name )
+    out_dir = os.path.join('./results/Barlow/', model_name )
     print('out_dir: ', out_dir)
     
     if not os.path.exists(os.path.join(out_dir,'checkpoint')):
@@ -44,9 +123,10 @@ def main():
     # train on the GPU or on the CPU, if a GPU is not available
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')    
     root = 'E:/Datasets/'
-    dataset = CityscapeDataset(root,"train")
+    dataset = CityscapeDataset(root,"train",augmentation())
+    
     data_loader = torch.utils.data.DataLoader(
-            dataset, batch_size=1, shuffle=True, num_workers=4,collate_fn=utils.collate_fn)
+            dataset, batch_size=1, shuffle=True, num_workers=4)
     # import ipdb
     # ipdb.set_trace()
     
@@ -68,7 +148,7 @@ def main():
         # train for one epoch, printing every 10 iterations
         print('start train one epoch')
         losses_OE = train_one_epoch(model, optimizer, data_loader, device, epoch, 10, learningRate)
-        writer.add_scalar('Loss_Cityscapes/train', losses_OE, epoch)
+        writer.add_scalar('Loss_Barlow/train', losses_OE, epoch)
 
         # update the learning rate
         if epoch % 15 == 0:
@@ -89,23 +169,8 @@ def main():
                 # 'loss': loss
                 }, out_dir + '/checkpoint/max_valid_model.pth')
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    torch.save(model.state_dict(), './model/Barlow_model/'+ model_name + '.pth')
+    
 
 
 

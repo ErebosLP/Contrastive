@@ -7,8 +7,10 @@ Created on Sat May 21 10:17:03 2022
 # Packages
 import numpy as np
 import matplotlib.pyplot as plt
+import torchvision.transforms as T
 import torch
 import glob
+from PIL import Image  
 
 
 class CityscapeDataset(object):
@@ -18,7 +20,7 @@ class CityscapeDataset(object):
     load_mask()
     '''
 
-    def __init__(self,root ,  subset,as_tensor = True):
+    def __init__(self,root ,  subset,transform,as_tensor = True,):
         
         self.subset = subset
         self.root = root
@@ -27,14 +29,18 @@ class CityscapeDataset(object):
         self.img_paths.sort()
         self.as_tensor = as_tensor
         print('num_images: ',len(self.img_paths))
-        
+        self.transform = transform
     def __len__(self):
        return 10 #len(self.img_paths)
    
     def __getitem__(self, index):
 
-        img =plt.imread(self.img_paths[index])
+        #img =plt.imread(self.img_paths[index])
+        img = Image.open(self.img_paths[index])
+        img = T.Resize((244,244))(img) 
+        
+        #img = self.tensorize(img)
         #img = torch.as_tensor(img, dtype=torch.uint8)
             
            
-        return img
+        return self.transform(img)
