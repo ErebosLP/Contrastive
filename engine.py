@@ -53,7 +53,7 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, le
     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
     header = 'Epoch: [{}]'.format(epoch)
 
-    losses = 0
+    weakly_correlated_loss = 0.0
 
     for images in metric_logger.log_every(data_loader, print_freq, header):
 
@@ -67,26 +67,38 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, le
         z_view1_norm = (z_view1 - z_view1.mean()) / z_view1.std() # NxD
         z_view2_norm = (z_view2 - z_view2.mean()) / z_view2.std() # NxD
         
+        D = z_view1.shape[1]
         
         # cross-correlation matrix
-        c = z_view1_norm.T @ z_view2_norm # DxD
+        cross_weakly = z_view1_norm.T @ z_view2_norm # DxD
         import ipdb
         ipdb.set_trace()
+        cross_matrix = cross_weakly.repeat_interleave(D,0).repeat_interleave(D,1)
         
-        on_diag = torch.diagonal(c).add_(-1).pow_(2).sum()
-        off_diag = off_diagonal(c).pow_(2).sum()
-        loss = on_diag + lambd * off_diag
-        #losses += loss
+        identity_stacked_matrix = torch.eye(D).cuda()
+        
+        c_diff= cross_matrix - identity_stacked_matrix
+        #c_diff[(identity_stacked_matrix == 0.)] *= self.lambda_param
+
+        weakly_correlated_loss = c_diff.sum() # / D
+        
+        
+        
+        
+        #----------------old stuff------------------------
+        # on_diag = torch.diagonal(c).add_(-1).pow_(2).sum()
+        # off_diag = off_diagonal(c).pow_(2).sum()
+        # loss = on_diag + lambd * off_diag
+        # #losses += loss
+        #----------------old stuff------------------------
 
         rate = adjust_lr(optimizer, epoch + 1 ,learning_rate) # einstellen von Learning rate (in abhängigkeit von der Epoche) 
 
         optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-        #optimizer.zero_grad()
+        weakly_correlated_loss.backward()
+        optimizer.step()        
         
-        
-        metric_logger.update(loss=loss)
+        metric_logger.update(loss=weakly_correlated_loss)
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
 
-    return loss #  das habe ich hinzugefügt für tensorboard
+    return weakly_correlated_loss #  das habe ich hinzugefügt für tensorboard
