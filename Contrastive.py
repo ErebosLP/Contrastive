@@ -1,23 +1,26 @@
 import os
 import torch
-import utils
+
 import random
 import torchvision
 import numpy as np
 from scipy import ndimage
 import torchvision.transforms as T
-from engine import train_one_epoch
+
 from PIL import Image, ImageOps, ImageFilter
-from City_imageloader import CityscapeDataset
 
 from torch.utils.tensorboard import SummaryWriter
+
+import utils
+from engine import train_one_epoch
+from City_imageloader import CityscapeDataset
 
 def get_contrastive_model():
     #model = torchvision.models.detection.maskrcnn_resnet50_fpn(pretrained=False)
     model = torchvision.models.resnet50(zero_init_residual=True)
-    newmodel = torch.nn.Sequential(*(list(model.children())[:-1]))
+    model = torch.nn.Sequential(*(list(model.children())[:-1]))
 
-    return newmodel
+    return model
 
 class GaussianBlur(object):
     def __init__(self, p):
@@ -37,12 +40,14 @@ class Sobel:
         
     def __call__(self,img):
         # Get x-gradient in "sx"
+
         sx = ndimage.sobel(img,axis=0,mode='constant')
         # Get y-gradient in "sy"
         sy = ndimage.sobel(img,axis=1,mode='constant')
         # Get square root of sum of squares
-        sobel=np.hypot(sx,sy)
-        return sobel
+        sobel_out=np.hypot(sx,sy)
+            
+        return sobel_out
 
 class RandomErasing:
     def __init__(self, p, area):
@@ -87,14 +92,16 @@ class augmentation:
            ),
            GaussianBlur(p=0.9),
            RandomErasing(p=1.0, area = 0.35),    
-           #T.RandomApply([Sobel()],p=0.5),
+           T.RandomApply([Sobel()],p=1),
            T.ToTensor(),          
           ])
     
     
     def __call__(self, x):
         y1 = self.transform(x)
+        y1 = y1.to(torch.float32)
         y2 = self.transform(x)
+        y2 = y2.to(torch.float32)
         return torch.cat((y1.unsqueeze(0), y2.unsqueeze(0)),0)
 
 
@@ -124,7 +131,7 @@ def main():
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')    
     root = 'E:/Datasets/'
     dataset = CityscapeDataset(root,"train",augmentation())
-    
+    dataset[0]
     data_loader = torch.utils.data.DataLoader(
             dataset, batch_size=1, shuffle=True, num_workers=4)
     # import ipdb
@@ -135,6 +142,7 @@ def main():
     
     params = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.Adam(params, lr=learningRate, weight_decay=0.0005)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, numEpochs)
     
     start_epoch = 0
     ## ====================================================================================
@@ -147,7 +155,7 @@ def main():
         
         # train for one epoch, printing every 10 iterations
         print('start train one epoch')
-        losses_OE = train_one_epoch(model, optimizer, data_loader, device, epoch, 10, learningRate)
+        losses_OE = train_one_epoch(model, optimizer, data_loader, device, epoch, 100, scheduler)
         writer.add_scalar('Loss_Barlow/train', losses_OE, epoch)
 
         # update the learning rate

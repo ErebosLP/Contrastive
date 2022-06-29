@@ -10,44 +10,8 @@ import torchvision.transforms as T
 
 
 
-def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, learning_rate, lambd = 0.0051):
+def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, scheduler, lambd = 0.0051):
 
-    #in abhängigkeit der epoche wird learning rate und hard ratio verkleinert
-    def adjust_lr(optimizer, ep ,learning_rate): # function just exist, if top method is run
-        
-        if ep < 3:# TODO: 10 # warming up
-            lr = learning_rate
-
-        elif ep < 30:
-            lr = learning_rate * 3 / 10
-
-        elif ep < 55:
-            lr = learning_rate / 10
-
-        elif ep < 80:
-            lr = learning_rate / 100 * 5
-
-        elif ep < 160:
-            lr = learning_rate / 100
-
-        else: # selbstständig hinzugefügt und ander schrittwete abgeändert
-            lr = learning_rate / 1000 * 5
-
-       
-        for p in optimizer.param_groups:
-            p['lr'] = lr
-
-        return lr
-    
-    
-    def off_diagonal(x):
-        # return a flattened view of the off-diagonal elements of a square matrix
-        n, m = x.shape
-        assert n == m
-        return x.flatten()[:-1].view(n - 1, n + 1)[:, 1:].flatten()
-    import ipdb
-
-    
     model.train()
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
@@ -61,38 +25,29 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, le
         images_view2 = torch.unsqueeze(images[0][1].to(device),0)
 
         z_view1 = model.forward(images_view1) # NxD
+        z_view1 = torch.squeeze(torch.squeeze(z_view1,2),2)
+        
         z_view2 = model.forward(images_view2) # NxD
-
+        z_view2 = torch.squeeze(torch.squeeze(z_view2,2),2)
+        
         # normalize repr. along the batch dimension
         z_view1_norm = (z_view1 - z_view1.mean()) / z_view1.std() # NxD
         z_view2_norm = (z_view2 - z_view2.mean()) / z_view2.std() # NxD
         
-        D = z_view1.shape[1]
+        #D = z_view1.shape[1]
         
         # cross-correlation matrix
-        cross_weakly = z_view1_norm.T @ z_view2_norm # DxD
-        import ipdb
-        ipdb.set_trace()
-        cross_matrix = cross_weakly.repeat_interleave(D,0).repeat_interleave(D,1)
+        cross_weakly = z_view1_norm @ z_view2_norm.T # DxD
+
+        #cross_matrix = cross_weakly.repeat_interleave(D,0).repeat_interleave(D,1)
         
-        identity_stacked_matrix = torch.eye(D).cuda()
+        #identity_stacked_matrix = torch.eye(D).cuda()
         
-        c_diff= cross_matrix - identity_stacked_matrix
+        c_diff= cross_weakly - 1 #cross_matrix - identity_stacked_matrix
         #c_diff[(identity_stacked_matrix == 0.)] *= self.lambda_param
 
-        weakly_correlated_loss = c_diff.sum() # / D
+        weakly_correlated_loss = c_diff #.sum() # / D
         
-        
-        
-        
-        #----------------old stuff------------------------
-        # on_diag = torch.diagonal(c).add_(-1).pow_(2).sum()
-        # off_diag = off_diagonal(c).pow_(2).sum()
-        # loss = on_diag + lambd * off_diag
-        # #losses += loss
-        #----------------old stuff------------------------
-
-        rate = adjust_lr(optimizer, epoch + 1 ,learning_rate) # einstellen von Learning rate (in abhängigkeit von der Epoche) 
 
         optimizer.zero_grad()
         weakly_correlated_loss.backward()
@@ -100,5 +55,5 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, le
         
         metric_logger.update(loss=weakly_correlated_loss)
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
-
-    return weakly_correlated_loss #  das habe ich hinzugefügt für tensorboard
+    scheduler.step()
+    return weakly_correlated_loss 
