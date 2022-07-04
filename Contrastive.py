@@ -1,3 +1,4 @@
+import utils
 import os
 import torch
 
@@ -5,13 +6,13 @@ import random
 import torchvision
 import numpy as np
 from scipy import ndimage
+import matplotlib.pyplot as plt
 import torchvision.transforms as T
-
+import segmentation_models_pytorch as smp
 from PIL import Image, ImageOps, ImageFilter
-
 from torch.utils.tensorboard import SummaryWriter
 
-import utils
+
 from engine import train_one_epoch
 from City_imageloader import CityscapeDataset
 
@@ -58,10 +59,9 @@ class RandomErasing:
         if np.random.random() < self.p:
             return img
 
-        new_img = np.asarray(img)
+        new_img = np.array(img)
         S_e = (np.random.random() * self.area + 0.1) * new_img.shape[0] * new_img.shape[1] # random area
         tot = 0
-
         while tot < S_e:
             y , x = np.random.randint(0, new_img.shape[0]-2) , np.random.randint(0, new_img.shape[1]-2)
             wy, wx = np.random.randint(1, new_img.shape[0] - y) , np.random.randint(1, new_img.shape[1] - x)
@@ -85,14 +85,14 @@ class augmentation:
     
     
             self.transform = T.Compose([
-          T.RandomApply(
-               [T.ColorJitter(brightness=0.4, contrast=0.4,
-                                       saturation=0.2, hue=[ 0 , 0.125])],
-               p=0.5,
-           ),
-           GaussianBlur(p=0.9),
-           RandomErasing(p=1.0, area = 0.35),    
-           T.RandomApply([Sobel()],p=1),
+           T.RandomApply(
+                [T.ColorJitter(brightness=0.4, contrast=0.4,
+                                        saturation=0.2, hue=[ 0 , 0.125])],
+                p=1,
+            ),
+           GaussianBlur(p=0.5),
+           #RandomErasing(p=0, area = 0.35),    
+           T.RandomApply([Sobel()],p=0.5),
            T.ToTensor(),          
           ])
     
@@ -105,14 +105,13 @@ class augmentation:
         return torch.cat((y1.unsqueeze(0), y2.unsqueeze(0)),0)
 
 
-
 def main():
     base_lr = 0.0001
     numEpochs = 5
     learningRate = base_lr
 
     # model name   
-    model_name = 'model_Barlow_contrastive_numEpochs' + str(numEpochs) 
+    model_name = 'model_Barlow_contrastive_numEpochs' + str(numEpochs)
     print('model name: ', model_name)
     
     # see if path exist otherwise make new directory
@@ -130,14 +129,15 @@ def main():
     # train on the GPU or on the CPU, if a GPU is not available
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')    
     root = 'E:/Datasets/'
+    #root = 'C:/Users/marie/sciebo/Master/Semester 2/Masterprojekt/Dataset_test/'
     dataset = CityscapeDataset(root,"train",augmentation())
-    dataset[0]
+
     data_loader = torch.utils.data.DataLoader(
-            dataset, batch_size=1, shuffle=True, num_workers=4)
+            dataset, batch_size=2, shuffle=True, num_workers=4)
     # import ipdb
     # ipdb.set_trace()
-    
-    model = get_contrastive_model()
+    model = smp.Unet(encoder_name='resnet50', encoder_weights=None, classes=16, activation='sigmoid')
+    #model = get_contrastive_model()
     model.to(device)
     
     params = [p for p in model.parameters() if p.requires_grad]

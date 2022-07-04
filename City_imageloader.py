@@ -24,7 +24,6 @@ class CityscapeDataset(object):
         
         self.subset = subset
         self.root = root
-        #self.data = torchvision.datasets.Cityscapes(root,split=subset, mode='fine', target_type=['instance'], transform=None)
         self.img_paths = glob.glob(root + 'leftImg8bit/' + subset + '/*/*_leftImg8bit.png')
         self.img_paths.sort()
         self.as_tensor = as_tensor
@@ -37,7 +36,8 @@ class CityscapeDataset(object):
 
         #img =plt.imread(self.img_paths[index])
         img = Image.open(self.img_paths[index])
-        img = T.Resize((244,244))(img) 
+        img = T.Resize((256,256))(img) 
+        #img = T.ToTensor()(img)
         
         #img = self.tensorize(img)
         #img = torch.as_tensor(img, dtype=torch.uint8)
