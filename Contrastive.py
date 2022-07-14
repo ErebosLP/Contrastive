@@ -24,12 +24,13 @@ def get_contrastive_model():
     return model
 
 class GaussianBlur(object):
-    def __init__(self, p):
+    def __init__(self, p,alpha):
         self.p = p
+        self.alpha = alpha
         
     def __call__(self, img):
         if random.random() < self.p:
-            sigma = random.random() * 1.9 + 0.1
+            sigma = random.random() * self.alpha + 0.1
             
             return img.filter(ImageFilter.GaussianBlur(sigma))
         else:
@@ -73,36 +74,39 @@ class RandomErasing:
 
             random_patch = np.random.rand(wy,wx,3)*255
             new_img[ y : y + wy , x : x + wx , : ] = random_patch
-        
+
         return Image.fromarray(new_img)
     
 class augmentation:
     def __init__(self):
-    
-            # this should have a parameter in cfg passed to it
-            # with open("./../../data/backgrounds.yaml") as f:
-                # self.bg_files = yaml.safe_load(f)['files']
-    
-    
             self.transform = T.Compose([
-           T.RandomApply(
-                [T.ColorJitter(brightness=0.4, contrast=0.4,
-                                        saturation=0.2, hue=[ 0 , 0.125])],
-                p=1,
-            ),
-           GaussianBlur(p=0.5),
-           #RandomErasing(p=0, area = 0.35),    
-           T.RandomApply([Sobel()],p=0.5),
-           T.ToTensor(),          
-          ])
+                T.RandomApply([T.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.2, hue=[ 0 , 0.125])],p=1,),
+                GaussianBlur(0.5,1.9),
+                RandomErasing(p=0, area = 0.35),    
+                T.RandomApply([Sobel()],p=0.5),
+                T.ToTensor(),          
+                ])
+            
+            self.sobel = T.Compose([
+                Sobel(),
+                T.ToTensor()
+                ])
+              
+            self.transform_prime =  T.Compose([
+                GaussianBlur(0.5,0.5),
+                T.ToTensor(),          
+                ])
     
     
     def __call__(self, x):
         y1 = self.transform(x)
         y1 = y1.to(torch.float32)
-        y2 = self.transform(x)
+        y2 = self.transform_prime(x)
         y2 = y2.to(torch.float32)
-        return torch.cat((y1.unsqueeze(0), y2.unsqueeze(0)),0)
+        y3 = self.sobel(x)
+        y3 = y3.to(torch.float32)
+        
+        return torch.cat((y1.unsqueeze(0), y2.unsqueeze(0), y3.unsqueeze(0)),0)
 
 
 def main():
@@ -131,7 +135,7 @@ def main():
     root = 'E:/Datasets/'
     #root = 'C:/Users/marie/sciebo/Master/Semester 2/Masterprojekt/Dataset_test/'
     dataset = CityscapeDataset(root,"train",augmentation())
-
+    dataset[0]
     data_loader = torch.utils.data.DataLoader(
             dataset, batch_size=2, shuffle=True, num_workers=4)
     # import ipdb
