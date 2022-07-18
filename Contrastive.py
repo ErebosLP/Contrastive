@@ -82,7 +82,6 @@ class augmentation:
             self.transform = T.Compose([
                 T.RandomApply([T.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.2, hue=[ 0 , 0.125])],p=1,),
                 GaussianBlur(0.5,1.9),
-                RandomErasing(p=0, area = 0.35),    
                 T.RandomApply([Sobel()],p=0.5),
                 T.ToTensor(),          
                 ])
@@ -93,7 +92,7 @@ class augmentation:
                 ])
               
             self.transform_prime =  T.Compose([
-                GaussianBlur(0.5,0.5),
+                GaussianBlur(1,0.5),
                 T.ToTensor(),          
                 ])
     
@@ -141,6 +140,7 @@ def main():
     # import ipdb
     # ipdb.set_trace()
     model = smp.Unet(encoder_name='resnet50', encoder_weights=None, classes=16, activation='sigmoid')
+    model.load_state_dict(torch.load('C:/Users/Jean-/Desktop/Contrastive/max_valid_model.pth')['model_state_dict'])
     #model = get_contrastive_model()
     model.to(device)
     

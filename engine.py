@@ -6,7 +6,7 @@ import utils
 import numpy as np
 import torchvision
 import torchvision.transforms as T
-
+import ipdb
 
 
 
@@ -40,13 +40,12 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, sc
             
             #delete non normalized embeddings for memmory reasons (on my laptop)
             del z_view1, z_view2
-            
+
             # Compute the Region of Intrest
-            pos = np.array(np.where(images_sobel == np.max(images_sobel)))
-            idx = int(np.round(pos.shape[1]/2))
-            pos = [pos[2][idx],pos[3][idx]]
-            
             sample_size = 64
+            pos = [np.random.normal(256/2,50-sample_size/2,1)[0],np.random.normal(256/2,200-sample_size/2,1)[0]]            
+            pos = np.round(pos).astype('uint8')
+            
             # compute if valid RoI and correct it if not
             if pos[0] < sample_size/2:
                 pos[0] = sample_size/2
@@ -62,6 +61,14 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, sc
             RoI_view1 = z_view1_norm[:,int(pos[0]-sample_size/2):int(pos[0]+sample_size/2),int(pos[1]-sample_size/2):int(pos[1]+sample_size/2) ]  
             RoI_view2 = z_view1_norm[:,int(pos[0]-sample_size/2):int(pos[0]+sample_size/2),int(pos[1]-sample_size/2):int(pos[1]+sample_size/2) ]  
             
+            # #----------------------------------------------------------------------
+            # test = images_view2.squeeze(0)[:,int(pos[0]-sample_size/2):int(pos[0]+sample_size/2),int(pos[1]-sample_size/2):int(pos[1]+sample_size/2) ]
+            # test = test.cpu().numpy().transpose(1,2,0) * 255
+            # import matplotlib.pyplot as plt
+            # plt.imshow(test.astype('uint8'))
+            # plt.show()
+            # #---------------------------------------------------------------------- 
+            
             #Compute loss
             for j in range(z_view1_norm.shape[0]):
                 # vectorize the embeddings
@@ -73,6 +80,7 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, sc
                 cross_weakly = torch.abs(cross_weakly - torch.eye(sample_size*sample_size).cuda())
                 # Sum up the loss over a batch
                 weakly_correlated_loss += cross_weakly.sum()
+                
              
         # nomalizing the loss by dividing with batchsize, number of sampeled points, number of embeddings
         weakly_correlated_loss = ((weakly_correlated_loss/(sample_size*sample_size))/z_view1_norm.shape[0])/images.shape[0] 
