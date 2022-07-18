@@ -131,7 +131,7 @@ def main():
     writer = SummaryWriter("./runs/" + model_name)
     # train on the GPU or on the CPU, if a GPU is not available
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')    
-    root = 'E:/Datasets/'
+    root = '/export/data/jhembach/cityscapes/' #'E:/Datasets/'
     dataset = CityscapeDataset(root,"train",augmentation())
     dataset[0]
     data_loader = torch.utils.data.DataLoader(
