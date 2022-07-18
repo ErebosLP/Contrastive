@@ -132,7 +132,6 @@ def main():
     # train on the GPU or on the CPU, if a GPU is not available
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')    
     root = 'E:/Datasets/'
-    #root = 'C:/Users/marie/sciebo/Master/Semester 2/Masterprojekt/Dataset_test/'
     dataset = CityscapeDataset(root,"train",augmentation())
     dataset[0]
     data_loader = torch.utils.data.DataLoader(
@@ -140,7 +139,6 @@ def main():
     # import ipdb
     # ipdb.set_trace()
     model = smp.Unet(encoder_name='resnet50', encoder_weights=None, classes=16, activation='sigmoid')
-    model.load_state_dict(torch.load('C:/Users/Jean-/Desktop/Contrastive/max_valid_model.pth')['model_state_dict'])
     #model = get_contrastive_model()
     model.to(device)
     
