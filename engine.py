@@ -59,7 +59,7 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, sc
             
             # Cutt out the RoI of the embeddings
             RoI_view1 = z_view1_norm[:,int(pos[0]-sample_size/2):int(pos[0]+sample_size/2),int(pos[1]-sample_size/2):int(pos[1]+sample_size/2) ]  
-            RoI_view2 = z_view1_norm[:,int(pos[0]-sample_size/2):int(pos[0]+sample_size/2),int(pos[1]-sample_size/2):int(pos[1]+sample_size/2) ]  
+            RoI_view2 = z_view2_norm[:,int(pos[0]-sample_size/2):int(pos[0]+sample_size/2),int(pos[1]-sample_size/2):int(pos[1]+sample_size/2) ]  
             
             # #----------------------------------------------------------------------
             # test = images_view2.squeeze(0)[:,int(pos[0]-sample_size/2):int(pos[0]+sample_size/2),int(pos[1]-sample_size/2):int(pos[1]+sample_size/2) ]
@@ -68,18 +68,26 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, sc
             # plt.imshow(test.astype('uint8'))
             # plt.show()
             # #---------------------------------------------------------------------- 
-            
+
             #Compute loss
-            for j in range(z_view1_norm.shape[0]):
-                # vectorize the embeddings
-                z_view1_vec = RoI_view1[i,:,:].reshape((RoI_view1[i,:,:].shape[1]*RoI_view1[i,:,:].shape[0]),1)
-                z_view2_vec = RoI_view2[i,:,:].reshape((RoI_view2[i,:,:].shape[1]*RoI_view2[i,:,:].shape[0]),1)
-                # Compute Corsscorrelation
-                cross_weakly = z_view1_vec @ z_view2_vec.mT # DxD
-                # Substract the identity matrix and take the absolute value
-                cross_weakly = torch.abs(cross_weakly - torch.eye(sample_size*sample_size).cuda())
-                # Sum up the loss over a batch
-                weakly_correlated_loss += cross_weakly.sum()
+            
+            # vectorize the embeddings
+            RoI_view1_vec = torch.reshape(torch.ravel(RoI_view1),(sample_size*sample_size,16))
+            RoI_view2_vec = torch.reshape(torch.ravel(RoI_view2),(sample_size*sample_size,16))
+            
+            # Compute Corsscorrelation
+            cross_weakly = RoI_view1_vec @ RoI_view2_vec.mT # DxD    
+            norm_view1 = torch.linalg.norm(RoI_view1_vec,axis = 1) 
+            norm_view2 = torch.linalg.norm(RoI_view2_vec,axis = 1)
+            norm = torch.unsqueeze(norm_view1,1)@torch.unsqueeze(norm_view2,1).T
+            
+            cross_weakly_norm = torch.div(cross_weakly,norm)
+                
+            # Substract the identity matrix and take the absolute value
+            cross_diff = torch.abs(cross_weakly_norm - torch.eye(sample_size*sample_size).cuda())
+            # Sum up the loss over a batch
+            weakly_correlated_loss += cross_diff.sum()
+            
                 
              
         # nomalizing the loss by dividing with batchsize, number of sampeled points, number of embeddings
