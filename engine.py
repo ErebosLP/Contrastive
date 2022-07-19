@@ -69,29 +69,39 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, sc
             # plt.show()
             # #---------------------------------------------------------------------- 
 
-            #Compute loss
+            # #Compute loss
             
-            # vectorize the embeddings
-            RoI_view1_vec = torch.reshape(torch.ravel(RoI_view1),(sample_size*sample_size,16))
-            RoI_view2_vec = torch.reshape(torch.ravel(RoI_view2),(sample_size*sample_size,16))
+            # # vectorize the embeddings
+            # RoI_view1_vec = torch.reshape(torch.ravel(RoI_view1),(sample_size*sample_size,16))
+            # RoI_view2_vec = torch.reshape(torch.ravel(RoI_view2),(sample_size*sample_size,16))
             
-            # Compute Corsscorrelation
-            cross_weakly = RoI_view1_vec @ RoI_view2_vec.mT # DxD    
-            norm_view1 = torch.linalg.norm(RoI_view1_vec,axis = 1) 
-            norm_view2 = torch.linalg.norm(RoI_view2_vec,axis = 1)
-            norm = torch.unsqueeze(norm_view1,1)@torch.unsqueeze(norm_view2,1).T
+            # # Compute Corsscorrelation
+            # cross_weakly = RoI_view1_vec @ RoI_view2_vec.mT # DxD    
+            # norm_view1 = torch.linalg.norm(RoI_view1_vec,axis = 1) 
+            # norm_view2 = torch.linalg.norm(RoI_view2_vec,axis = 1)
+            # norm = torch.unsqueeze(norm_view1,1)@torch.unsqueeze(norm_view2,1).T
             
-            cross_weakly_norm = torch.div(cross_weakly,norm)
-                
-            # Substract the identity matrix and take the absolute value
-            cross_diff = torch.abs(cross_weakly_norm - torch.eye(sample_size*sample_size).cuda())
+            # cross_weakly_norm = torch.div(cross_weakly,norm)
+            
+            
+            #Compute Loss
+            RoI_view1 = RoI_view2
+            RoI_view1_norm = (RoI_view1 - RoI_view1.mean(0).unsqueeze(0))/RoI_view1.std(0).unsqueeze(0)
+            RoI_view2_norm = (RoI_view2 - RoI_view2.mean(0).unsqueeze(0) )/RoI_view2.std(0).unsqueeze(0)
+            
+            sim = torch.sum(RoI_view1_norm * RoI_view2_norm, axis=0) / (RoI_view1_norm.shape[0]-1)
+            
+            sim_diff = torch.abs(sim - torch.ones(sim.shape).cuda())
+             
+            # # Substract the identity matrix and take the absolute value
+            #cross_diff = torch.abs(cross_weakly_norm - torch.eye(sample_size*sample_size).cuda())
             # Sum up the loss over a batch
-            weakly_correlated_loss += cross_diff.sum()
+            weakly_correlated_loss += sim_diff.sum()
             
                 
              
         # nomalizing the loss by dividing with batchsize, number of sampeled points, number of embeddings
-        weakly_correlated_loss = ((weakly_correlated_loss/(sample_size*sample_size))/z_view1_norm.shape[0])/images.shape[0] 
+        # weakly_correlated_loss = ((weakly_correlated_loss/(sample_size*sample_size))/z_view1_norm.shape[0])/images.shape[0] 
         
         # Optimizer
         optimizer.zero_grad()
@@ -99,11 +109,11 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, sc
         optimizer.step()        
         
         # cumultative loss over one training epoch (later devided by the number of batches)
-        cum_loss += weakly_correlated_loss.detach().cpu().numpy()
+        cum_loss += weakly_correlated_loss.detach().cpu().numpy()*10000
         num_batches += 1
         
         # log the progress
-        metric_logger.update(loss=weakly_correlated_loss)
+        metric_logger.update(loss=weakly_correlated_loss*10000)
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
     # learnigreate update
     scheduler.step()
