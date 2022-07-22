@@ -99,8 +99,6 @@ class augmentation:
         y1 = y1.to(torch.float32)
         y2 = self.transform_prime(x)
         y2 = y2.to(torch.float32)
-        y3 = self.sobel(x)
-        y3 = y3.to(torch.float32)
         
         return torch.cat((y1.unsqueeze(0), y2.unsqueeze(0)),0)
 
