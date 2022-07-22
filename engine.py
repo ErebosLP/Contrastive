@@ -109,11 +109,11 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, sc
         optimizer.step()        
         
         # cumultative loss over one training epoch (later devided by the number of batches)
-        cum_loss += weakly_correlated_loss.detach().cpu().numpy()*10000
+        cum_loss += weakly_correlated_loss.detach().cpu().numpy()
         num_batches += 1
         
         # log the progress
-        metric_logger.update(loss=weakly_correlated_loss*10000)
+        metric_logger.update(loss=weakly_correlated_loss)
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
     # learnigreate update
     scheduler.step()
