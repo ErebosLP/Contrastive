@@ -25,7 +25,7 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, sc
             #prepare the images views
             images_view1 = torch.unsqueeze(images[i][0].to(device),0)
             images_view2 = torch.unsqueeze(images[i][1].to(device),0)
-            images_sobel = torch.unsqueeze(images[i][2],0).numpy()
+            
             
             # compute the embeddings
             z_view1 = model.forward(images_view1) # NxD
