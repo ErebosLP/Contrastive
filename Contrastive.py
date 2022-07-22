@@ -156,7 +156,7 @@ def main():
         writer.add_scalar('Loss_Barlow/train', losses_OE, epoch)
 
         # update the learning rate
-        if epoch % 15 == 0:
+        if epoch % 20 == 0:
             torch.save(model.state_dict(), out_dir + '/checkpoint/%08d_model.pth' % (epoch))
             torch.save({'epoch': epoch,
                 'model_state_dict': model.state_dict(),
