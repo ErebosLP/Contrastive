@@ -85,13 +85,13 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, sc
             
             
             #Compute Loss
-            RoI_view1 = RoI_view2
             RoI_view1_norm = (RoI_view1 - RoI_view1.mean(0).unsqueeze(0))/RoI_view1.std(0).unsqueeze(0)
             RoI_view2_norm = (RoI_view2 - RoI_view2.mean(0).unsqueeze(0) )/RoI_view2.std(0).unsqueeze(0)
             
-            sim = torch.sum(RoI_view1_norm * RoI_view2_norm, axis=0) / (RoI_view1_norm.shape[0]-1)
+            sim = torch.nn.CosineSimilarity(dim=0, eps=1e-08)(RoI_view1_norm,RoI_view2_norm)
+            sim = (sim + 1) / 2
             
-            sim_diff = torch.abs(sim - torch.ones(sim.shape).cuda())
+            sim_diff = torch.abs(sim - 1)
              
             # # Substract the identity matrix and take the absolute value
             #cross_diff = torch.abs(cross_weakly_norm - torch.eye(sample_size*sample_size).cuda())
