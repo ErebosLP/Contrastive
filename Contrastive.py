@@ -86,10 +86,7 @@ class augmentation:
                 T.ToTensor(),          
                 ])
             
-            self.sobel = T.Compose([
-                Sobel(),
-                T.ToTensor()
-                ])
+
               
             self.transform_prime =  T.Compose([
                 GaussianBlur(1,0.5),
@@ -105,12 +102,12 @@ class augmentation:
         y3 = self.sobel(x)
         y3 = y3.to(torch.float32)
         
-        return torch.cat((y1.unsqueeze(0), y2.unsqueeze(0), y3.unsqueeze(0)),0)
+        return torch.cat((y1.unsqueeze(0), y2.unsqueeze(0)),0)
 
 
 def main():
     base_lr = 0.0001
-    numEpochs = 5
+    numEpochs = 1000
     learningRate = base_lr
 
     # model name   
