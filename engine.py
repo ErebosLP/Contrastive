@@ -111,7 +111,8 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, sc
             RoI2_view2_norm = torch.reshape((RoI2_view2 - RoI2_view2.mean(0).unsqueeze(0)) / RoI2_view2.std(0).unsqueeze(0),(sample_size**2,16)).unsqueeze(2)
 
             # choose index for negative examples
-            neg_idx = np.random.choice(sample_size**2,(sample_size**2,5))
+            neg_examples = 10
+            neg_idx = np.random.choice(sample_size**2,(sample_size**2,neg_examples))
             
             #negative examples
             
@@ -119,28 +120,36 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, sc
             neg2_view2_norm =  torch.swapaxes(RoI2_view2_norm[neg_idx,:].squeeze(),1,2)
             
             #Stack the vectorized embeddings
-            RoI1_view1_stack = torch.cat((RoI1_view1_norm,RoI1_view1_norm,RoI1_view1_norm,RoI1_view1_norm,RoI1_view1_norm,RoI1_view1_norm),dim=2)
+            
+            RoI1_view1_stack = RoI1_view1_norm.repeat(1,1,neg_examples+1)
             neg1_view2_stack = torch.cat((RoI1_view2_norm,neg2_view2_norm),dim=2)
             
-            RoI2_view1_stack = torch.cat((RoI2_view1_norm,RoI2_view1_norm,RoI2_view1_norm,RoI2_view1_norm,RoI2_view1_norm,RoI2_view1_norm),dim=2)
+            RoI2_view1_stack = RoI2_view1_norm.repeat(1,1,neg_examples+1)
             neg2_view2_stack = torch.cat((RoI2_view2_norm,neg1_view2_norm),dim=2)
             
             #Compute the similarities
             sim1 = torch.nn.CosineSimilarity(dim=1, eps=1e-08)(RoI1_view1_stack,neg1_view2_stack)
             sim1 = (sim1 + 1) / 2
-            sim1[:,0] = sim1[:,0] - 1
+            #sim1[:,0] = sim1[:,0] - 1
             
             sim2 = torch.nn.CosineSimilarity(dim=1, eps=1e-08)(RoI2_view1_stack,neg2_view2_stack)
             sim2 = (sim2 + 1) / 2
-            sim2[:,0] = sim2[:,0] - 1
+            #sim2[:,0] = sim2[:,0] - 1
             
             
-            sim_diff = torch.abs(sim1).sum() + torch.abs(sim2).sum()
+            target = torch.zeros(sim1.shape).cuda()
+            target[:,0] = 1
+            
+            loss  = torch.nn.CrossEntropyLoss()
+            
+            #sim_diff = torch.abs(sim1).sum() + torch.abs(sim2).sum()
+            
+            weakly_correlated_loss += loss(sim1,target) + loss(sim2,target)
             
             # # Substract the identity matrix and take the absolute value
             #cross_diff = torch.abs(cross_weakly_norm - torch.eye(sample_size*sample_size).cuda())
             # Sum up the loss over a batch
-            weakly_correlated_loss += sim_diff
+            #weakly_correlated_loss += sim_diff
             
                 
              
