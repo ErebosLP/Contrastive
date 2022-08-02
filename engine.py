@@ -25,6 +25,7 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, sc
             #prepare the images views
             images_view1 = torch.unsqueeze(images[i][0].to(device),0)
             images_view2 = torch.unsqueeze(images[i][1].to(device),0)
+            images_neg = torch.unsqueeze(images[i][2].to(device),0)
             
             # compute the embeddings
             z_view1 = model.forward(images_view1) # NxD
@@ -33,12 +34,16 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, sc
             z_view2 = model.forward(images_view2) # NxD
             z_view2 = torch.squeeze(z_view2,0)
             
+            z_view_neg = model.forward(images_neg) # NxD
+            z_view_neg = torch.squeeze(z_view_neg,0)
+            
             # normalize embeddings along the batch dimension
             z_view1_norm = (z_view1 - z_view1.mean()) / z_view1.std() # NxD
             z_view2_norm = (z_view2 - z_view2.mean()) / z_view2.std() # NxD
+            z_view_neg_norm = (z_view_neg - z_view_neg.mean()) / z_view_neg.std() # NxD
             
             #delete non normalized embeddings for memmory reasons (on my laptop)
-            del z_view1, z_view2
+            #del z_view1, z_view2, z_view_neg
 
             # Compute the Region of Intrest
             sample_size = 64
@@ -46,6 +51,8 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, sc
             pos1 = np.round(pos1).astype('uint8')
             pos2 = [np.random.normal(256/2,50-sample_size/2,1)[0],np.random.normal(192,(100-sample_size/2)/3,1)[0]]            
             pos2 = np.round(pos2).astype('uint8')
+            pos3 = [np.random.normal(256/2,50-sample_size/2,1)[0],np.random.normal(128 ,(100-sample_size/2)/3,1)[0]]            
+            pos3 = np.round(pos3).astype('uint8')
             
             # compute if valid RoI and correct it if not
             if pos1[0] < sample_size/2:
@@ -74,6 +81,8 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, sc
             
             RoI2_view1 = z_view1_norm[:,int(pos2[0]-sample_size/2):int(pos2[0]+sample_size/2),int(pos2[1]-sample_size/2):int(pos2[1]+sample_size/2) ]  
             RoI2_view2 = z_view2_norm[:,int(pos2[0]-sample_size/2):int(pos2[0]+sample_size/2),int(pos2[1]-sample_size/2):int(pos2[1]+sample_size/2) ]
+            
+            RoI3_view1 = z_view_neg_norm[:,int(pos3[0]-sample_size/2):int(pos3[0]+sample_size/2),int(pos3[1]-sample_size/2):int(pos3[1]+sample_size/2) ] 
             
             
             
@@ -110,14 +119,17 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, sc
             RoI2_view1_norm = torch.reshape((RoI2_view1 - RoI2_view1.mean(0).unsqueeze(0)) / RoI2_view1.std(0).unsqueeze(0),(sample_size**2,16)).unsqueeze(2)
             RoI2_view2_norm = torch.reshape((RoI2_view2 - RoI2_view2.mean(0).unsqueeze(0)) / RoI2_view2.std(0).unsqueeze(0),(sample_size**2,16)).unsqueeze(2)
 
+            RoI3_view1_norm = torch.reshape((RoI3_view1 - RoI3_view1.mean(0).unsqueeze(0)) / RoI3_view1.std(0).unsqueeze(0),(sample_size**2,16)).unsqueeze(2)
+
             # choose index for negative examples
             neg_examples = 10
-            neg_idx = np.random.choice(sample_size**2,(sample_size**2,neg_examples))
+            neg_idx1 = np.random.choice(sample_size**2,(sample_size**2,neg_examples))
+            neg_idx2 = np.random.choice(sample_size**2,(sample_size**2,neg_examples))
             
             #negative examples
             
-            neg1_view2_norm =  torch.swapaxes(RoI1_view2_norm[neg_idx,:].squeeze(),1,2)
-            neg2_view2_norm =  torch.swapaxes(RoI2_view2_norm[neg_idx,:].squeeze(),1,2)
+            neg1_view2_norm =  torch.swapaxes(RoI3_view1_norm[neg_idx1,:].squeeze(),1,2)
+            neg2_view2_norm =  torch.swapaxes(RoI3_view1_norm[neg_idx2,:].squeeze(),1,2)
             
             #Stack the vectorized embeddings
             
