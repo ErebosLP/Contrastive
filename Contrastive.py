@@ -110,7 +110,7 @@ class augmentation:
 
 def main():
     base_lr = 0.0001
-    numEpochs = 5
+    numEpochs = 600
     learningRate = base_lr
 
     # model name   
