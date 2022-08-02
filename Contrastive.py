@@ -136,7 +136,7 @@ def main():
     dataset = CityscapeDataset(root,"train",augmentation())
 
     data_loader = torch.utils.data.DataLoader(
-            dataset, batch_size=2, shuffle=True, num_workers=4)
+            dataset, batch_size=10, shuffle=True, num_workers=4)
     # import ipdb
     # ipdb.set_trace()
     model = smp.Unet(encoder_name='resnet50', encoder_weights=None, classes=16, activation='sigmoid')
