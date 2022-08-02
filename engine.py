@@ -74,6 +74,16 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, sc
                 pos2[1] = 128 + sample_size/2
             if pos2[1] > 256 - sample_size/2:
                 pos2[1] = 256 - sample_size/2
+                
+            if pos3[0] < sample_size/2:
+                pos3[0] = sample_size/2
+            if pos3[0] > 256 - sample_size/2:
+                pos3[0] = 256 - sample_size/2
+                
+            if pos3[1] < sample_size/2:
+                pos3[1] = sample_size/2
+            if pos3[1] > 256 - sample_size/2:
+                pos3[1] = 256 - sample_size/2
             
             # Cutt out the RoI of the embeddings
             RoI1_view1 = z_view1_norm[:,int(pos1[0]-sample_size/2):int(pos1[0]+sample_size/2),int(pos1[1]-sample_size/2):int(pos1[1]+sample_size/2) ]  
