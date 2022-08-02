@@ -30,7 +30,7 @@ class CityscapeDataset(object):
         print('num_images: ',len(self.img_paths))
         self.transform = transform
     def __len__(self):
-       return 2 #len(self.img_paths)
+       return len(self.img_paths)
    
     def __getitem__(self, index):
 
