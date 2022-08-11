@@ -80,32 +80,34 @@ class RandomErasing:
 class augmentation:
     def __init__(self):
             self.transform = T.Compose([
-                T.RandomApply([T.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.2, hue=[ 0 , 0.125])],p=1,),
-                GaussianBlur(0.5,1.9),
-                T.RandomApply([Sobel()],p=0.5),
+                T.ColorJitter(brightness=0.8, contrast=0.8, saturation=0.8, hue=0.2),
+                GaussianBlur(1,np.random.uniform(0.1,2)),
+                T.RandomApply([Sobel()],p=1),
                 T.ToTensor(),          
                 ])
             
 
               
             self.transform_prime =  T.Compose([
-                GaussianBlur(1,0.5),
+                GaussianBlur(1,np.random.uniform(0.1,2)),
                 T.ToTensor(),          
                 ])
     
     
-    def __call__(self, x):
+    def __call__(self, x, x_neg):
         y1 = self.transform(x)
         y1 = y1.to(torch.float32)
         y2 = self.transform_prime(x)
         y2 = y2.to(torch.float32)
+        
+        
         
         return torch.cat((y1.unsqueeze(0), y2.unsqueeze(0)),0)
 
 
 def main():
     base_lr = 0.0001
-    numEpochs = 600
+    numEpochs = 5
     learningRate = base_lr
 
     # model name   
@@ -126,13 +128,16 @@ def main():
     writer = SummaryWriter("./runs/" + model_name)
     # train on the GPU or on the CPU, if a GPU is not available
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')    
-    root = '/export/data/jhembach/cityscapes/' #'E:/Datasets/'
+    root = 'C:/Users/Jean-/sciebo/Documents/Masterprojekt/Dataset_test/' #'E:/Datasets/'
+    #root = 'C:/Users/marie/sciebo/Master/Semester 2/Masterprojekt/Dataset_test/'
     dataset = CityscapeDataset(root,"train",augmentation())
+
     data_loader = torch.utils.data.DataLoader(
-            dataset, batch_size=10, shuffle=True, num_workers=4)
+            dataset, batch_size=2, shuffle=True, num_workers=4)
     # import ipdb
     # ipdb.set_trace()
     model = smp.Unet(encoder_name='resnet50', encoder_weights=None, classes=16, activation='sigmoid')
+    #model.load_state_dict(torch.load('C:/Users/Jean-/Desktop/Contrastive/max_valid_model.pth')['model_state_dict'])
     #model = get_contrastive_model()
     model.to(device)
     
@@ -155,7 +160,7 @@ def main():
         writer.add_scalar('Loss_Barlow/train', losses_OE, epoch)
 
         # update the learning rate
-        if epoch % 20 == 0:
+        if epoch % 15 == 0:
             torch.save(model.state_dict(), out_dir + '/checkpoint/%08d_model.pth' % (epoch))
             torch.save({'epoch': epoch,
                 'model_state_dict': model.state_dict(),
