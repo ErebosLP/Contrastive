@@ -94,7 +94,7 @@ class augmentation:
                 ])
     
     
-    def __call__(self, x, x_neg):
+    def __call__(self, x):
         y1 = self.transform(x)
         y1 = y1.to(torch.float32)
         y2 = self.transform_prime(x)
